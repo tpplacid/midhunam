@@ -842,7 +842,7 @@ function HandoffScreen({ go, cart, clearCart }) {
           <select value={area} onChange={e=>setArea(e.target.value)} style={{ width:'100%', padding:'10px 12px', background:'var(--paper)', border:'1px solid var(--ink-faint)', fontFamily:'var(--font-serif)', fontSize:15, color: area ? 'var(--ink)' : 'var(--ink-faint)', borderRadius:0, outline:'none', appearance:'none', WebkitAppearance:'none', cursor:'pointer' }}>
             <option value="">Select your area</option>
             {DATA.deliveryAreas.map(a=><option key={a} value={a}>{a}</option>)}
-            <option value="Other">Other (Dhanya will confirm)</option>
+            <option value="Other">Other (Subject to Delivery)</option>
           </select>
           {area === 'Other' && (
             <div style={{ marginTop:6, fontFamily:'var(--font-serif)', fontSize:12, color:'var(--accent-olive)', fontStyle:'italic' }}>
