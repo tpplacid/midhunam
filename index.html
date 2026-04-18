@@ -1012,6 +1012,7 @@ function AboutScreen({ go }) {
           <p style={{ margin:'0 0 14px' }}>Midhunam is my mother's kitchen.</p>
           <p style={{ margin:'0 0 14px' }}>She grew up in central Kerala, where the afternoons smelled of coconut oil and jaggery, and every festival began a week early with something frying on the stove. That is the cooking she does.</p>
           <p style={{ margin:'0 0 14px' }}>We started this because people kept asking her. Neighbours, then their neighbours. Small tins of achappam would disappear in a day. So we made a quiet little website. Nothing fancy. No discounts, no dark patterns, no shelf life that needs a chemistry lab.</p>
+          <p style={{ margin:'0 0 14px' }}>Everything is cooked in small batches, by hand, in a kitchen in Hyderabad. She sends them out through Porter, within 5 km. If something is not right, she'd like to know.</p>
         </div>
         <div style={{ marginTop:18, fontFamily:'var(--font-hand)', fontSize:26, color:'var(--accent-red)', transform:'rotate(-2deg)', display:'inline-block' }}>— With love, Dhanya</div>
       </div>
@@ -1373,7 +1374,29 @@ function ReviewsScreen({ go }) {
             <div style={{ fontFamily:'var(--font-serif)', fontStyle:'italic', fontSize:13, color:'var(--ink-soft)', marginTop:6 }}>Dhanya reads every one.</div>
           </div>
         ) : (
-          <BigButton onClick={()=>{ if(feedStars && feedText.trim()) setFeedSent(true); }} disabled={!feedStars || !feedText.trim()}>
+          <BigButton onClick={async ()=>{
+            if (!feedStars || !feedText.trim()) return;
+            // Save to Reviews sheet with Show=FALSE (awaiting approval)
+            if (SCRIPT_URL) {
+              try {
+                await fetch(SCRIPT_URL, {
+                  method: 'POST',
+                  mode: 'no-cors',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    type: 'review',
+                    name: feedName.trim() || 'Anonymous',
+                    area: '',
+                    text: feedText.trim(),
+                    stars: feedStars,
+                    show: false,
+                    date: new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+                  }),
+                });
+              } catch(e) {}
+            }
+            setFeedSent(true);
+          }} disabled={!feedStars || !feedText.trim()}>
             Send feedback
           </BigButton>
         )}
