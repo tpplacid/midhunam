@@ -532,11 +532,38 @@ function ProductScreen({ id, go, cart, addToCart, updateQty, shopStatus, stock }
 // ══════════════════════════════════════════════════
 // CART
 // ══════════════════════════════════════════════════
-function CartScreen({ go, cart, updateQty, removeItem, shopStatus }) {
+function CartScreen({ go, cart, updateQty, removeItem, shopStatus, stock, refreshStock }) {
   const items = Object.entries(cart).map(([id,qty])=>({ p:DATA.products.find(x=>x.id===id), qty }));
   const total = items.reduce((s,{p,qty})=>s+(p?.price||0)*qty, 0);
   const hasImportItems = items.some(({p}) => p?.isImport);
   const hasKitchenItems = items.some(({p}) => p && !p.isImport);
+
+  // ── Force fresh stock check when cart opens
+  const [liveStock, setLiveStock] = useState(stock);
+  const [stockChecking, setStockChecking] = useState(true);
+
+  useEffect(() => {
+    setStockChecking(true);
+    // Bypass cache — force fresh fetch
+    stockCache.fetched = 0;
+    fetchStock().then(s => {
+      setLiveStock(s || stock);
+      setStockChecking(false);
+    });
+  }, []);
+
+  // ── Which items are now sold out
+  const soldOutIds = items
+    .filter(({p}) => {
+      if (!liveStock || !p) return false;
+      const qty = liveStock[p.id];
+      return qty !== null && qty !== undefined && qty <= 0;
+    })
+    .map(({p}) => p.id);
+
+  const hasSoldOut = soldOutIds.length > 0;
+  const canCheckout = !hasSoldOut && !stockChecking && (!shopStatus || shopStatus.open);
+
   return (
     <div style={{ paddingBottom:140 }}>
       <div style={{ padding:'28px 20px 16px', textAlign:'center', borderBottom:'2px solid var(--ink)' }}>
@@ -544,6 +571,7 @@ function CartScreen({ go, cart, updateQty, removeItem, shopStatus }) {
         <div style={{ fontFamily:'var(--font-display)', fontSize:30, color:'var(--ink)', fontWeight:500, margin:'6px 0 4px' }}>Your basket</div>
         <div style={{ fontFamily:'var(--font-mono)', fontSize:10, letterSpacing:'0.18em', color:'var(--ink-soft)' }}>{new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase()}</div>
       </div>
+
       {items.length===0 ? (
         <div style={{ padding:'60px 30px', textAlign:'center' }}>
           <div style={{ fontFamily:'var(--font-serif)', fontSize:20, color:'var(--ink)', fontStyle:'italic' }}>Nothing in the basket yet.</div>
@@ -551,27 +579,54 @@ function CartScreen({ go, cart, updateQty, removeItem, shopStatus }) {
         </div>
       ) : (
         <>
+          {/* Stock checking indicator */}
+          {stockChecking && (
+            <div style={{ padding:'10px var(--px)', fontFamily:'var(--font-mono)', fontSize:10, color:'var(--ink-soft)', letterSpacing:'0.16em', textAlign:'center' }}>
+              Checking availability...
+            </div>
+          )}
+
+          {/* Sold out warning banner */}
+          {hasSoldOut && !stockChecking && (
+            <div style={{ margin:'12px var(--px) 0', padding:'14px 16px', border:'1px solid var(--accent-red)', background:'var(--paper-deep)' }}>
+              <div style={{ fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.22em', color:'var(--accent-red)', textTransform:'uppercase', marginBottom:6 }}>⚠ Items no longer available</div>
+              <div style={{ fontFamily:'var(--font-serif)', fontSize:13.5, color:'var(--ink)', lineHeight:1.6 }}>
+                Some items in your basket just sold out. Remove them to continue.
+              </div>
+            </div>
+          )}
+
           <div style={{ padding:'8px var(--px)' }}>
             {items.map(({p,qty})=>p&&(
               <div key={p.id} style={{ padding:'14px 0', borderBottom:'1px dashed var(--ink-faint)' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', gap:10, alignItems:'baseline' }}>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontFamily:'var(--font-serif)', fontSize:17, color:'var(--ink)' }}>{p.name}</div>
+                    <div style={{ fontFamily:'var(--font-serif)', fontSize:17, color: soldOutIds.includes(p.id) ? 'var(--accent-red)' : 'var(--ink)' }}>{p.name}</div>
                     <div style={{ fontFamily:'var(--font-mono)', fontSize:10.5, color:'var(--ink-soft)', marginTop:2, letterSpacing:'0.08em' }}>{p.unit} · ₹{p.price}</div>
+                    {soldOutIds.includes(p.id) && (
+                      <div style={{ fontFamily:'var(--font-mono)', fontSize:9.5, color:'var(--accent-red)', letterSpacing:'0.14em', textTransform:'uppercase', marginTop:4 }}>
+                        Sold out — remove to continue
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontFamily:'var(--font-mono)', fontSize:15, color:'var(--ink)', fontWeight:600, fontVariantNumeric:'tabular-nums' }}>₹{p.price*qty}</div>
+                  <div style={{ fontFamily:'var(--font-mono)', fontSize:15, color: soldOutIds.includes(p.id) ? 'var(--ink-faint)' : 'var(--ink)', fontWeight:600, fontVariantNumeric:'tabular-nums', textDecoration: soldOutIds.includes(p.id) ? 'line-through' : 'none' }}>₹{p.price*qty}</div>
                 </div>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
-                  <div style={{ display:'flex', border:'1px solid var(--ink-faint)' }}>
-                    <button onClick={()=>updateQty(p.id,qty-1)} style={{ ...qtyBtnSm }}>−</button>
-                    <div style={{ width:32, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-mono)', fontSize:13, color:'var(--ink)', fontWeight:600 }}>{qty}</div>
-                    <button onClick={()=>updateQty(p.id,qty+1)} style={{ ...qtyBtnSm }}>+</button>
-                  </div>
-                  <button onClick={()=>removeItem(p.id)} style={{ background:'none', border:'none', fontFamily:'var(--font-mono)', fontSize:10, letterSpacing:'0.18em', color:'var(--ink-soft)', textTransform:'uppercase', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:3 }}>Remove</button>
+                  {soldOutIds.includes(p.id) ? (
+                    <div style={{ fontFamily:'var(--font-serif)', fontSize:13, color:'var(--ink-soft)', fontStyle:'italic' }}>No longer available</div>
+                  ) : (
+                    <div style={{ display:'flex', border:'1px solid var(--ink-faint)' }}>
+                      <button onClick={()=>updateQty(p.id,qty-1)} style={{ ...qtyBtnSm }}>−</button>
+                      <div style={{ width:32, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-mono)', fontSize:13, color:'var(--ink)', fontWeight:600 }}>{qty}</div>
+                      <button onClick={()=>updateQty(p.id,qty+1)} style={{ ...qtyBtnSm }}>+</button>
+                    </div>
+                  )}
+                  <button onClick={()=>removeItem(p.id)} style={{ background:'none', border:'none', fontFamily:'var(--font-mono)', fontSize:10, letterSpacing:'0.18em', color: soldOutIds.includes(p.id) ? 'var(--accent-red)' : 'var(--ink-soft)', textTransform:'uppercase', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:3, fontWeight: soldOutIds.includes(p.id) ? 700 : 400 }}>Remove</button>
                 </div>
               </div>
             ))}
           </div>
+
           <div style={{ padding:'16px 20px 0' }}>
             <LedgerRow label="Subtotal" value={`₹${total}`}/>
             <LedgerRow label="Delivery" value="Free (within 5 km)"/>
@@ -579,7 +634,7 @@ function CartScreen({ go, cart, updateQty, removeItem, shopStatus }) {
               <LedgerRow label="TOTAL" value={`₹${total}`} bold/>
             </div>
           </div>
-          {/* TAT disclaimer based on cart contents */}
+
           {(hasImportItems || hasKitchenItems) && (
             <div style={{ padding:'16px var(--px) 0' }}>
               {hasKitchenItems && (
@@ -596,6 +651,7 @@ function CartScreen({ go, cart, updateQty, removeItem, shopStatus }) {
               )}
             </div>
           )}
+
           <div style={{ padding:'16px var(--px) 0' }}>
             <div style={{ background:'var(--paper-deep)', border:'1px solid var(--accent-olive)', padding:'14px 16px' }}>
               <div style={{ fontFamily:'var(--font-mono)', fontSize:10, letterSpacing:'0.2em', color:'var(--accent-olive)', textTransform:'uppercase', marginBottom:6 }}>How this works</div>
@@ -604,15 +660,23 @@ function CartScreen({ go, cart, updateQty, removeItem, shopStatus }) {
               </div>
             </div>
           </div>
+
           <div style={{ padding:'18px var(--px) 0' }}>
             {shopStatus && !shopStatus.open ? (
               <div style={{ padding:'14px 16px', border:'1px solid var(--ink)', background:'var(--paper-deep)', fontFamily:'var(--font-serif)', fontStyle:'italic', fontSize:14, color:'var(--ink-soft)', lineHeight:1.55, textAlign:'center' }}>
                 {shopStatus.message || 'Not accepting orders right now.'}<br/>
                 <span style={{ fontFamily:'var(--font-mono)', fontSize:11, color:'var(--ink)', fontStyle:'normal' }}>Call +91 77022 43172 for enquiries</span>
               </div>
+            ) : hasSoldOut ? (
+              <div style={{ padding:'14px 16px', border:'1px solid var(--accent-red)', background:'var(--paper-deep)', fontFamily:'var(--font-serif)', fontSize:14, color:'var(--accent-red)', textAlign:'center', lineHeight:1.55 }}>
+                Remove sold-out items above to continue
+              </div>
             ) : (
-              <BigButton onClick={()=>go({screen:'handoff'})}>
-                <span style={{ display:'inline-flex', alignItems:'center', gap:10 }}><WhatsAppGlyph size={16}/>Send on WhatsApp · ₹{total}</span>
+              <BigButton onClick={()=>go({screen:'handoff'})} disabled={!canCheckout}>
+                <span style={{ display:'inline-flex', alignItems:'center', gap:10 }}>
+                  <WhatsAppGlyph size={16}/>
+                  {stockChecking ? 'Checking stock...' : `Send on WhatsApp · ₹${total}`}
+                </span>
               </BigButton>
             )}
           </div>
@@ -622,9 +686,6 @@ function CartScreen({ go, cart, updateQty, removeItem, shopStatus }) {
   );
 }
 
-// ══════════════════════════════════════════════════
-// WHATSAPP HANDOFF
-// ══════════════════════════════════════════════════
 function HandoffScreen({ go, cart, clearCart }) {
   const items = Object.entries(cart).map(([id,qty])=>({ p:DATA.products.find(x=>x.id===id), qty }));
   const total = items.reduce((s,{p,qty})=>s+(p?.price||0)*qty,0);
@@ -731,6 +792,20 @@ function HandoffScreen({ go, cart, clearCart }) {
       return;
     }
 
+    // ── Final stock check before sending
+    stockCache.fetched = 0;
+    const freshStock = await fetchStock();
+    if (freshStock) {
+      const soldOut = items.filter(({p}) => {
+        const qty = freshStock[p?.id];
+        return qty !== null && qty !== undefined && qty <= 0;
+      });
+      if (soldOut.length > 0) {
+        setSending(false);
+        alert(`Sorry — ${soldOut.map(({p})=>p.name).join(', ')} just sold out. Go back to your basket and remove them.`);
+        return;
+      }
+    }
     const saved = await saveToSheet(isModify);
     if (!saved) setSheetError(true);
 
@@ -943,7 +1018,6 @@ function AboutScreen({ go }) {
           {[
             ['No preservatives','Ever. If it needs to last, it does — through salt, sugar, or oil.'],
             ['No bulk wholesaler','Made fresh the day before or day of delivery.'],
-            ['No middlemen','You order, Dhanya cooks, Porter delivers. That\u2019s it.'],
             ['No upselling','If it\u2019s not on the menu today, it\u2019s not available today.'],
           ].map(([t,d])=>(
             <div key={t} style={{ padding:'10px 0', borderTop:'1px dashed var(--ink-faint)' }}>
@@ -1310,7 +1384,15 @@ function TopBar({ route, back, history, cartCount, go }) {
         {!isHome ? (
           <button onClick={back} style={topBtn}>←</button>
         ) : (
-          <div style={{ width:32, height:32, border:'1.5px solid var(--ink)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-display)', fontSize:18, color:'var(--ink)', fontWeight:600, lineHeight:1 }}>M</div>
+          <div style={{ width:38, height:38, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }} onClick={()=>go({screen:'home'})}>
+              <svg viewBox="0 0 38 38" width="38" height="38" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="1" width="36" height="36" rx="3" fill="none" stroke="var(--ink)" strokeWidth="1.5"/>
+                <text x="19" y="30" textAnchor="middle"
+                  fontFamily="'Palatino Linotype', Palatino, Georgia, serif"
+                  fontSize="26" fontWeight="900" fontStyle="italic"
+                  fill="var(--ink)">മ</text>
+              </svg>
+            </div>
         )}
       </div>
       <div style={{ fontFamily:'var(--font-mono)', fontSize:10.5, letterSpacing:'0.28em', color:'var(--ink-soft)', textTransform:'uppercase' }}>Midhunam</div>
@@ -1385,7 +1467,7 @@ function App() {
       case 'home': return <HomeScreen go={go} cart={cart} addToCart={addToCart} updateQty={updateQty} stock={stock} shopStatus={shopStatus}/>;
       case 'catalogue': return <CatalogueScreen go={go} cart={cart} addToCart={addToCart} updateQty={updateQty} stock={stock} shopStatus={shopStatus}/>;
       case 'product': return <ProductScreen id={route.id} go={go} cart={cart} addToCart={addToCart} updateQty={updateQty} shopStatus={shopStatus} stock={stock}/>;
-      case 'cart': return <CartScreen go={go} cart={cart} updateQty={updateQty} removeItem={removeItem} shopStatus={shopStatus}/>;
+      case 'cart': return <CartScreen go={go} cart={cart} updateQty={updateQty} removeItem={removeItem} shopStatus={shopStatus} stock={stock}/>;
       case 'handoff': return <HandoffScreen go={go} cart={cart} clearCart={clearCart}/>;
       case 'about': return <AboutScreen go={go}/>;
       case 'track': return <TrackScreen go={go}/>;
