@@ -298,7 +298,9 @@ function HomeScreen({ go, cart, addToCart, updateQty, stock, shopStatus }) {
       <div style={{ padding:'0 var(--px)', display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:14, overflow:'hidden' }}>
         {featured.map(p => {
           const inCart = cart?.[p.id] || 0;
-          const canBuy = p.available !== false;
+          const stockQty = stock ? (stock[p.id] ?? null) : null;
+          const outOfStock = stockQty !== null && stockQty <= 0;
+          const canBuy = p.available !== false && !outOfStock;
           return (
             <div key={p.id} onClick={() => go({ screen:'product', id:p.id })} style={{ cursor:'pointer' }}>
               <div style={{ aspectRatio:'1', background:'var(--paper-deep)', border:'1px solid var(--ink-faint)', overflow:'hidden', boxSizing:'border-box' }}>
@@ -312,7 +314,7 @@ function HomeScreen({ go, cart, addToCart, updateQty, stock, shopStatus }) {
                     <span style={{ fontFamily:'var(--font-mono)', fontSize:12, fontWeight:600, color:'var(--ink)' }}>₹{p.price}</span>
                     <span style={{ fontFamily:'var(--font-mono)', fontSize:9, color:'var(--ink-soft)', letterSpacing:'0.1em', textTransform:'uppercase' }}>{p.unit}</span>
                   </div>
-                  <CartControl p={p} inCart={inCart} canBuy={canBuy && (shopStatus?.open !== false)} addToCart={shopStatus?.open !== false ? addToCart : null} updateQty={updateQty} compact/>
+                  <CartControl p={p} inCart={inCart} canBuy={canBuy && (shopStatus?.open !== false)} addToCart={shopStatus?.open !== false ? addToCart : null} updateQty={updateQty} compact stockLeft={stockQty}/>
                 </div>
               </div>
             </div>
@@ -325,6 +327,8 @@ function HomeScreen({ go, cart, addToCart, updateQty, stock, shopStatus }) {
       <div style={{ padding:'0 var(--px)', display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(190px, 1fr))', gap:12 }}>
         {DATA.products.filter(p=>p.category==='coming').map(p => {
           const inCart = cart?.[p.id]||0;
+          const stockQtyI = stock ? (stock[p.id] ?? null) : null;
+          const outOfStockI = stockQtyI !== null && stockQtyI <= 0;
           return (
             <div key={p.id} onClick={() => go({ screen:'product', id:p.id })} style={{ cursor:'pointer' }}>
               <div style={{ aspectRatio:'1', background:'var(--paper-deep)', border:'1px solid var(--ink-faint)', overflow:'hidden' }}>
@@ -338,7 +342,7 @@ function HomeScreen({ go, cart, addToCart, updateQty, stock, shopStatus }) {
                     <span style={{ fontFamily:'var(--font-mono)', fontSize:12, fontWeight:600, color:'var(--ink)' }}>₹{p.price}</span>
                     <span style={{ fontFamily:'var(--font-mono)', fontSize:9, color:'var(--ink-soft)', letterSpacing:'0.1em', textTransform:'uppercase' }}>{p.unit}</span>
                   </div>
-                  <CartControl p={p} inCart={inCart} canBuy={p.available && (shopStatus?.open !== false)} addToCart={shopStatus?.open !== false ? addToCart : null} updateQty={updateQty} compact/>
+                  <CartControl p={p} inCart={inCart} canBuy={p.available && !outOfStockI && (shopStatus?.open !== false)} addToCart={shopStatus?.open !== false ? addToCart : null} updateQty={updateQty} compact/>
                 </div>
                 <div style={{ fontFamily:'var(--font-mono)', fontSize:9, color:'var(--accent-olive)', letterSpacing:'0.12em', textTransform:'uppercase', marginTop:6 }}>Delivery: 5–7 days</div>
               </div>
@@ -411,7 +415,8 @@ function CatalogueScreen({ go, cart, addToCart, updateQty }) {
             <div style={{ padding:'0 var(--px)' }}>
               {items.map(p=>{
                 const inCart = cart?.[p.id]||0;
-                const canBuy = p.available!==false;
+                const stockQtyC = stock ? (stock[p.id] ?? null) : null;
+                const canBuy = p.available!==false && !(stockQtyC !== null && stockQtyC <= 0);
                 return (
                   <div key={p.id} onClick={()=>go({screen:'product',id:p.id})} style={{ display:'flex', gap:14, padding:'14px 0', borderBottom:'1px solid var(--ink-faint)', cursor:'pointer', alignItems:'stretch' }}>
                     <div style={{ width:92, height:92, flexShrink:0, background:'var(--art-bg)', border:'1px solid var(--ink-faint)', overflow:'hidden' }}>
@@ -426,7 +431,7 @@ function CatalogueScreen({ go, cart, addToCart, updateQty }) {
                         <div style={{ display:'flex', gap:8, alignItems:'baseline' }}>
                           {canBuy ? (<><span style={{ fontFamily:'var(--font-mono)', fontSize:13, color:'var(--ink)', fontWeight:600 }}>₹{p.price}</span><span style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--ink-soft)', letterSpacing:'0.1em' }}>· {p.unit}</span></>) : (<span style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--ink-soft)', letterSpacing:'0.18em', textTransform:'uppercase' }}>From Kerala</span>)}
                         </div>
-                        <CartControl p={p} inCart={inCart} canBuy={canBuy && (shopStatus?.open !== false)} addToCart={shopStatus?.open !== false ? addToCart : null} updateQty={updateQty} compact/>
+                        <CartControl p={p} inCart={inCart} canBuy={canBuy && (shopStatus?.open !== false)} addToCart={shopStatus?.open !== false ? addToCart : null} updateQty={updateQty} compact stockLeft={stockQty}/>
                       </div>
                     </div>
                   </div>
@@ -446,13 +451,15 @@ function CatalogueScreen({ go, cart, addToCart, updateQty }) {
 // PRODUCT DETAIL
 // ══════════════════════════════════════════════════
 const qtyBtnLg = { width:44, height:50, background:'transparent', border:'none', fontSize:20, color:'var(--ink)', cursor:'pointer', fontFamily:'var(--font-mono)' };
-function ProductScreen({ id, go, cart, addToCart, updateQty, shopStatus }) {
+function ProductScreen({ id, go, cart, addToCart, updateQty, shopStatus, stock }) {
   const p = DATA.products.find(x=>x.id===id);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   if (!p) return <div style={{ padding:40 }}>Not found.</div>;
   const inCart = cart?.[p.id]||0;
   const handleAdd = () => { addToCart(p.id, qty); setAdded(true); setTimeout(()=>setAdded(false),1800); };
+  const stockQtyP = stock ? (stock?.[p.id] ?? null) : null;
+  const outOfStockP = stockQtyP !== null && stockQtyP <= 0;
   return (
     <div style={{ paddingBottom:140 }}>
       <div style={{ position:'relative', background:'var(--art-bg)', borderBottom:'1px solid var(--ink-faint)', display:'flex', justifyContent:'center' }}>
@@ -473,6 +480,7 @@ function ProductScreen({ id, go, cart, addToCart, updateQty, shopStatus }) {
       <div style={{ padding:'12px var(--px)' }}>
         <div style={{ border:'1px dashed var(--ink-faint)', padding:'14px 16px' }}>
           <LedgerRow label="Price" value={`₹${p.price}`} bold/>
+          {stockQtyP !== null && <LedgerRow label="Available" value={stockQtyP <= 0 ? 'Out of stock' : `${stockQtyP} left`}/>}
           <LedgerRow label="Size" value={p.unit}/>
           <LedgerRow label="Keeps" value={p.shelfLife||'—'}/>
           <LedgerRow label="Delivery" value={p.isImport?'5–7 days from order':p.category==='fresh'?'Next day, before 7pm':p.category==='keepers'?'Next day, any slot':'Next day'}/>
@@ -489,6 +497,12 @@ function ProductScreen({ id, go, cart, addToCart, updateQty, shopStatus }) {
         <div style={{ padding:'20px var(--px) 0' }}>
           <div style={{ padding:'14px 18px', border:'1px solid var(--ink)', background:'var(--paper-deep)', fontFamily:'var(--font-serif)', fontStyle:'italic', fontSize:14, color:'var(--ink-soft)', lineHeight:1.55 }}>
             {shopStatus.message || 'We are not accepting orders right now.'} To enquire, call <strong style={{fontStyle:'normal'}}>+91 77022 43172</strong>.
+          </div>
+        </div>
+      ) : (outOfStockP) ? (
+        <div style={{ padding:'20px var(--px) 0' }}>
+          <div style={{ padding:'14px 18px', border:'1px dashed var(--ink-faint)', fontFamily:'var(--font-serif)', fontStyle:'italic', fontSize:14, color:'var(--ink-soft)' }}>
+            Currently out of stock. Check back soon or message us on WhatsApp.
           </div>
         </div>
       ) : p.available ? (
@@ -842,7 +856,7 @@ function HandoffScreen({ go, cart, clearCart }) {
           <select value={area} onChange={e=>setArea(e.target.value)} style={{ width:'100%', padding:'10px 12px', background:'var(--paper)', border:'1px solid var(--ink-faint)', fontFamily:'var(--font-serif)', fontSize:15, color: area ? 'var(--ink)' : 'var(--ink-faint)', borderRadius:0, outline:'none', appearance:'none', WebkitAppearance:'none', cursor:'pointer' }}>
             <option value="">Select your area</option>
             {DATA.deliveryAreas.map(a=><option key={a} value={a}>{a}</option>)}
-            <option value="Other">Other (Subject to Delivery)</option>
+            <option value="Other">Other (Dhanya will confirm)</option>
           </select>
           {area === 'Other' && (
             <div style={{ marginTop:6, fontFamily:'var(--font-serif)', fontSize:12, color:'var(--accent-olive)', fontStyle:'italic' }}>
@@ -918,6 +932,7 @@ function AboutScreen({ go }) {
           <p style={{ margin:'0 0 14px' }}>Midhunam is my mother's kitchen.</p>
           <p style={{ margin:'0 0 14px' }}>She grew up in central Kerala, where the afternoons smelled of coconut oil and jaggery, and every festival began a week early with something frying on the stove. That is the cooking she does.</p>
           <p style={{ margin:'0 0 14px' }}>We started this because people kept asking her. Neighbours, then their neighbours. Small tins of achappam would disappear in a day. So we made a quiet little website. Nothing fancy. No discounts, no dark patterns, no shelf life that needs a chemistry lab.</p>
+          <p style={{ margin:'0 0 14px' }}>Everything is cooked in small batches, by hand, in a kitchen in Hyderabad. She sends them out through Porter, within 5 km. If something is not right, she'd like to know.</p>
         </div>
         <div style={{ marginTop:18, fontFamily:'var(--font-hand)', fontSize:26, color:'var(--accent-red)', transform:'rotate(-2deg)', display:'inline-block' }}>— With love, Dhanya</div>
       </div>
@@ -928,7 +943,7 @@ function AboutScreen({ go }) {
           {[
             ['No preservatives','Ever. If it needs to last, it does — through salt, sugar, or oil.'],
             ['No bulk wholesaler','Made fresh the day before or day of delivery.'],
-            ['No middlemen','That\u2019s it.'],
+            ['No middlemen','You order, Dhanya cooks, Porter delivers. That\u2019s it.'],
             ['No upselling','If it\u2019s not on the menu today, it\u2019s not available today.'],
           ].map(([t,d])=>(
             <div key={t} style={{ padding:'10px 0', borderTop:'1px dashed var(--ink-faint)' }}>
@@ -1369,7 +1384,7 @@ function App() {
     switch(route.screen) {
       case 'home': return <HomeScreen go={go} cart={cart} addToCart={addToCart} updateQty={updateQty} stock={stock} shopStatus={shopStatus}/>;
       case 'catalogue': return <CatalogueScreen go={go} cart={cart} addToCart={addToCart} updateQty={updateQty} stock={stock} shopStatus={shopStatus}/>;
-      case 'product': return <ProductScreen id={route.id} go={go} cart={cart} addToCart={addToCart} updateQty={updateQty} shopStatus={shopStatus}/>;
+      case 'product': return <ProductScreen id={route.id} go={go} cart={cart} addToCart={addToCart} updateQty={updateQty} shopStatus={shopStatus} stock={stock}/>;
       case 'cart': return <CartScreen go={go} cart={cart} updateQty={updateQty} removeItem={removeItem} shopStatus={shopStatus}/>;
       case 'handoff': return <HandoffScreen go={go} cart={cart} clearCart={clearCart}/>;
       case 'about': return <AboutScreen go={go}/>;
