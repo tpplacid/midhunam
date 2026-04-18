@@ -391,7 +391,7 @@ function HomeScreen({ go, cart, addToCart, updateQty, stock, shopStatus, product
 // ══════════════════════════════════════════════════
 // CATALOGUE
 // ══════════════════════════════════════════════════
-function CatalogueScreen({ go, cart, addToCart, updateQty }) {
+function CatalogueScreen({ go, cart, addToCart, updateQty, products, stock, shopStatus }) {
   const [filter, setFilter] = useState('all');
   const filteredProducts = filter==='all' ? products : products.filter(p=>p.category===filter);
   return (
@@ -1600,12 +1600,10 @@ function App() {
     }
   };
 
-  const [products, setProducts] = useState(DATA.products); // start with hardcoded
   const [stock, setStock] = useState(null);
   const [liveProducts, setLiveProducts] = useState(null);
   const [shopStatus, setShopStatus] = useState({ open: true, message: '' });
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768);
-  // Merge live products into DATA so all screens use them transparently
   const products = liveProducts || DATA.products;
   useEffect(() => {
     const handler = () => setIsDesktop(window.innerWidth >= 768);
@@ -1712,43 +1710,6 @@ async function fetchShopStatus() {
     return status;
   } catch(e) {
     return { open: true, message: '' }; // fail open
-  }
-}
-
-// ── Products from Sheet (Products tab)
-const productsCache = { data: null, fetched: 0 };
-
-async function fetchProducts() {
-  if (productsCache.data && Date.now() - productsCache.fetched < 300000) return productsCache.data;
-  try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Products`;
-    const res = await fetch(url);
-    const text = await res.text();
-    const json = JSON.parse(text.match(/google.visualization.Query.setResponse\((.*)\);/s)[1]);
-    const rows = json.table?.rows || [];
-    if (!rows.length) return null;
-    const products = rows.map(r => ({
-      id:          r.c[0]?.v || '',
-      name:        r.c[1]?.v || '',
-      subtitle:    r.c[2]?.v || '',
-      blurb:       r.c[3]?.v || '',
-      category:    r.c[4]?.v || 'keepers',
-      price:       Number(r.c[5]?.v) || 0,
-      unit:        r.c[6]?.v || '',
-      shelfLife:   r.c[7]?.v || '',
-      ingredients: r.c[8]?.v ? r.c[8].v.split(',').map(s=>s.trim()) : [],
-      allergens:   r.c[9]?.v ? r.c[9].v.split(',').map(s=>s.trim()) : [],
-      available:   r.c[10]?.v !== false && r.c[10]?.v !== 'FALSE',
-      featured:    r.c[11]?.v === true || r.c[11]?.v === 'TRUE',
-      isImport:    r.c[12]?.v === true || r.c[12]?.v === 'TRUE',
-      image:       r.c[13]?.v || '',
-      artId:       r.c[0]?.v || '',
-    })).filter(p => p.id);
-    productsCache.data = products;
-    productsCache.fetched = Date.now();
-    return products;
-  } catch(e) {
-    return null; // fallback to hardcoded
   }
 }
 
