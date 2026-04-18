@@ -119,9 +119,17 @@ const DATA = {
     tagline: 'A kitchen in Hyderabad, cooking Kerala.',
     city: 'Hyderabad',
     radiusKm: 5,
-    whatsapp: '+919381423172',
+    whatsapp: '+917702243172',
     deliveryPartner: 'Porter',
   },
+  // Areas within ~5km of kitchen — update as needed
+  deliveryAreas: [
+    'Gachibowli','Kondapur','Madhapur','Hitec City','Nanakramguda',
+    'Manikonda','Puppalguda','Financial District','Raidurgam','Narsingi',
+    'Kokapet','Tellapur','Hafeezpet','Miyapur','Chandanagar',
+    'Serilingampally','Lingampally','Nizampet','Bachupally','Kukatpally',
+    'JNTU','Pragathi Nagar','Chanda Nagar','Bowrampet','Patancheru',
+  ],
   categories: [
     { id: 'fresh', name: 'Fresh, made to order', subtitle: 'Cooked the day of delivery. Order by 8pm for next-day.', eta: 'Next day · before 7pm', kind: 'fresh' },
     { id: 'keepers', name: 'Keepers & travellers', subtitle: 'Longer shelf life. Pack for journeys, tins, lunch boxes.', eta: 'Next day · any slot', kind: 'keeper' },
@@ -164,6 +172,19 @@ function applyPalette(key) {
 // ══════════════════════════════════════════════════
 // SHARED COMPONENTS
 // ══════════════════════════════════════════════════
+// ── Closed banner shown across ordering screens when shop is shut
+function ClosedBanner({ message }) {
+  return (
+    <div style={{ margin:'16px var(--px) 0', padding:'16px 18px', background:'var(--paper-deep)', border:'1px solid var(--ink)', position:'relative' }}>
+      <div style={{ position:'absolute', top:-10, left:16, background:'var(--paper)', padding:'0 8px', fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.22em', color:'var(--accent-red)', textTransform:'uppercase' }}>— Currently closed —</div>
+      <div style={{ fontFamily:'var(--font-serif)', fontSize:15, color:'var(--ink)', lineHeight:1.6, fontStyle:'italic', marginTop:4 }}>{message}</div>
+      <div style={{ marginTop:12, fontFamily:'var(--font-mono)', fontSize:10, color:'var(--ink-soft)', letterSpacing:'0.14em' }}>
+        For enquiries, message us on WhatsApp: <strong style={{color:'var(--ink)'}}>+91 77022 43172</strong>
+      </div>
+    </div>
+  );
+}
+
 function LedgerRow({ label, value, bold }) {
   return (
     <div style={{ display:'flex', alignItems:'baseline', gap:6, fontFamily:'var(--font-mono)', fontSize:13, color:'var(--ink)', padding:'6px 0' }}>
@@ -226,7 +247,7 @@ const qtyBtnSm = { width:34, height:34, background:'transparent', border:'none',
 function CartControl({ p, inCart, canBuy, addToCart, updateQty, compact }) {
   const stop = e => e.stopPropagation();
   if (!canBuy) return (
-    <div onClick={stop} style={{ fontFamily:'var(--font-mono)', fontSize:compact?9.5:10, letterSpacing:'0.16em', textTransform:'uppercase', color:'var(--accent-olive)', border:'1px solid var(--accent-olive)', padding:compact?'5px 10px':'7px 12px', display:'inline-block', fontWeight:600 }}>5–7 days</div>
+    <div onClick={stop} style={{ fontFamily:'var(--font-mono)', fontSize:compact?9.5:10, letterSpacing:'0.16em', textTransform:'uppercase', color:'var(--ink-soft)', border:'1px solid var(--ink-faint)', padding:compact?'5px 10px':'7px 12px', display:'inline-block', fontWeight:600 }}>Sold out</div>
   );
   if (inCart > 0) return (
     <div onClick={stop} style={{ display:'inline-flex', alignItems:'stretch', border:'1px solid var(--ink)' }}>
@@ -243,7 +264,7 @@ function CartControl({ p, inCart, canBuy, addToCart, updateQty, compact }) {
 // ══════════════════════════════════════════════════
 // HOME
 // ══════════════════════════════════════════════════
-function HomeScreen({ go, cart, addToCart, updateQty }) {
+function HomeScreen({ go, cart, addToCart, updateQty, stock, shopStatus }) {
   const featured = DATA.products.filter(p => p.featured);
   return (
     <div style={{ paddingBottom:120 }}>
@@ -269,6 +290,9 @@ function HomeScreen({ go, cart, addToCart, updateQty }) {
         </div>
       </div>
 
+      {/* Closed banner */}
+      {shopStatus && !shopStatus.open && <ClosedBanner message={shopStatus.message}/>}
+
       {/* Featured — 2-column grid */}
       <SectionHead eyebrow="On the menu today" title="Freshly made, for you."/>
       <div style={{ padding:'0 var(--px)', display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:14, overflow:'hidden' }}>
@@ -288,7 +312,7 @@ function HomeScreen({ go, cart, addToCart, updateQty }) {
                     <span style={{ fontFamily:'var(--font-mono)', fontSize:12, fontWeight:600, color:'var(--ink)' }}>₹{p.price}</span>
                     <span style={{ fontFamily:'var(--font-mono)', fontSize:9, color:'var(--ink-soft)', letterSpacing:'0.1em', textTransform:'uppercase' }}>{p.unit}</span>
                   </div>
-                  <CartControl p={p} inCart={inCart} canBuy={canBuy} addToCart={addToCart} updateQty={updateQty} compact/>
+                  <CartControl p={p} inCart={inCart} canBuy={canBuy && (shopStatus?.open !== false)} addToCart={shopStatus?.open !== false ? addToCart : null} updateQty={updateQty} compact/>
                 </div>
               </div>
             </div>
@@ -314,7 +338,7 @@ function HomeScreen({ go, cart, addToCart, updateQty }) {
                     <span style={{ fontFamily:'var(--font-mono)', fontSize:12, fontWeight:600, color:'var(--ink)' }}>₹{p.price}</span>
                     <span style={{ fontFamily:'var(--font-mono)', fontSize:9, color:'var(--ink-soft)', letterSpacing:'0.1em', textTransform:'uppercase' }}>{p.unit}</span>
                   </div>
-                  <CartControl p={p} inCart={inCart} canBuy={p.available} addToCart={addToCart} updateQty={updateQty} compact/>
+                  <CartControl p={p} inCart={inCart} canBuy={p.available && (shopStatus?.open !== false)} addToCart={shopStatus?.open !== false ? addToCart : null} updateQty={updateQty} compact/>
                 </div>
                 <div style={{ fontFamily:'var(--font-mono)', fontSize:9, color:'var(--accent-olive)', letterSpacing:'0.12em', textTransform:'uppercase', marginTop:6 }}>Delivery: 5–7 days</div>
               </div>
@@ -402,7 +426,7 @@ function CatalogueScreen({ go, cart, addToCart, updateQty }) {
                         <div style={{ display:'flex', gap:8, alignItems:'baseline' }}>
                           {canBuy ? (<><span style={{ fontFamily:'var(--font-mono)', fontSize:13, color:'var(--ink)', fontWeight:600 }}>₹{p.price}</span><span style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--ink-soft)', letterSpacing:'0.1em' }}>· {p.unit}</span></>) : (<span style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--ink-soft)', letterSpacing:'0.18em', textTransform:'uppercase' }}>From Kerala</span>)}
                         </div>
-                        <CartControl p={p} inCart={inCart} canBuy={canBuy} addToCart={addToCart} updateQty={updateQty} compact/>
+                        <CartControl p={p} inCart={inCart} canBuy={canBuy && (shopStatus?.open !== false)} addToCart={shopStatus?.open !== false ? addToCart : null} updateQty={updateQty} compact/>
                       </div>
                     </div>
                   </div>
@@ -422,7 +446,7 @@ function CatalogueScreen({ go, cart, addToCart, updateQty }) {
 // PRODUCT DETAIL
 // ══════════════════════════════════════════════════
 const qtyBtnLg = { width:44, height:50, background:'transparent', border:'none', fontSize:20, color:'var(--ink)', cursor:'pointer', fontFamily:'var(--font-mono)' };
-function ProductScreen({ id, go, cart, addToCart, updateQty }) {
+function ProductScreen({ id, go, cart, addToCart, updateQty, shopStatus }) {
   const p = DATA.products.find(x=>x.id===id);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
@@ -461,7 +485,13 @@ function ProductScreen({ id, go, cart, addToCart, updateQty }) {
           {p.allergens?.length > 0 && <div style={{ marginTop:10, fontFamily:'var(--font-mono)', fontSize:10.5, color:'var(--accent-red)', letterSpacing:'0.08em' }}>Contains: {p.allergens.join(', ')}</div>}
         </div>
       )}
-      {p.available ? (
+      {shopStatus && !shopStatus.open ? (
+        <div style={{ padding:'20px var(--px) 0' }}>
+          <div style={{ padding:'14px 18px', border:'1px solid var(--ink)', background:'var(--paper-deep)', fontFamily:'var(--font-serif)', fontStyle:'italic', fontSize:14, color:'var(--ink-soft)', lineHeight:1.55 }}>
+            {shopStatus.message || 'We are not accepting orders right now.'} To enquire, call <strong style={{fontStyle:'normal'}}>+91 77022 43172</strong>.
+          </div>
+        </div>
+      ) : p.available ? (
         <div style={{ padding:'20px var(--px) 0' }}>
           <div style={{ display:'flex', gap:12, alignItems:'stretch' }}>
             <div style={{ display:'flex', border:'1px solid var(--ink)' }}>
@@ -488,7 +518,7 @@ function ProductScreen({ id, go, cart, addToCart, updateQty }) {
 // ══════════════════════════════════════════════════
 // CART
 // ══════════════════════════════════════════════════
-function CartScreen({ go, cart, updateQty, removeItem }) {
+function CartScreen({ go, cart, updateQty, removeItem, shopStatus }) {
   const items = Object.entries(cart).map(([id,qty])=>({ p:DATA.products.find(x=>x.id===id), qty }));
   const total = items.reduce((s,{p,qty})=>s+(p?.price||0)*qty, 0);
   const hasImportItems = items.some(({p}) => p?.isImport);
@@ -556,14 +586,21 @@ function CartScreen({ go, cart, updateQty, removeItem }) {
             <div style={{ background:'var(--paper-deep)', border:'1px solid var(--accent-olive)', padding:'14px 16px' }}>
               <div style={{ fontFamily:'var(--font-mono)', fontSize:10, letterSpacing:'0.2em', color:'var(--accent-olive)', textTransform:'uppercase', marginBottom:6 }}>How this works</div>
               <div style={{ fontFamily:'var(--font-serif)', fontSize:14, color:'var(--ink)', lineHeight:1.55 }}>
-                Tap below to send your basket to Dhanya on WhatsApp. She confirms the slot personally and it arrives via our delivery partner.
+                Tap below to send your basket to Dhanya on WhatsApp. She confirms the slot and payment details personally. <strong>Order prepared only after payment is confirmed.</strong>
               </div>
             </div>
           </div>
           <div style={{ padding:'18px var(--px) 0' }}>
-            <BigButton onClick={()=>go({screen:'handoff'})}>
-              <span style={{ display:'inline-flex', alignItems:'center', gap:10 }}><WhatsAppGlyph size={16}/>Send on WhatsApp · ₹{total}</span>
-            </BigButton>
+            {shopStatus && !shopStatus.open ? (
+              <div style={{ padding:'14px 16px', border:'1px solid var(--ink)', background:'var(--paper-deep)', fontFamily:'var(--font-serif)', fontStyle:'italic', fontSize:14, color:'var(--ink-soft)', lineHeight:1.55, textAlign:'center' }}>
+                {shopStatus.message || 'Not accepting orders right now.'}<br/>
+                <span style={{ fontFamily:'var(--font-mono)', fontSize:11, color:'var(--ink)', fontStyle:'normal' }}>Call +91 77022 43172 for enquiries</span>
+              </div>
+            ) : (
+              <BigButton onClick={()=>go({screen:'handoff'})}>
+                <span style={{ display:'inline-flex', alignItems:'center', gap:10 }}><WhatsAppGlyph size={16}/>Send on WhatsApp · ₹{total}</span>
+              </BigButton>
+            )}
           </div>
         </>
       )}
@@ -580,35 +617,71 @@ function HandoffScreen({ go, cart, clearCart }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [area, setArea] = useState('');
   const [note, setNote] = useState('');
+  const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
-  const canSend = name.trim() && phone.trim() && address.trim();
+  const [sheetError, setSheetError] = useState(false);
+  const [isModify, setIsModify] = useState(false);
+  const [existingOrderId, setExistingOrderId] = useState(null);
+
   const [orderId] = useState(() => {
-    const n = Math.floor(100000 + Math.random() * 900000).toString();
-    return n;
+    // Alphanumeric — much harder to brute-force than 6 digits
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return Array.from({length:7}, ()=>chars[Math.floor(Math.random()*chars.length)]).join('');
   });
 
-  const compose = () => {
+  const canSend = name.trim() && phone.trim() && address.trim() && area.trim() && !sending;
+  const cleanPhone = phone.replace(/\D/g,'');
+
+  // ── Check if same phone ordered within last 2 hours
+  const checkRecentOrder = async () => {
+    if (!SCRIPT_URL || !cleanPhone) return null;
+    try {
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Sheet1`;
+      const res = await fetch(url);
+      const text = await res.text();
+      const json = JSON.parse(text.match(/google.visualization.Query.setResponse\((.*)\);/s)[1]);
+      const rows = json.table?.rows || [];
+      const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+      for (const r of rows) {
+        const rowPhone = r.c[3]?.v?.toString().replace(/\D/g,'') || '';
+        const rowTime = r.c[1]?.v ? new Date(r.c[1].v).getTime() : 0;
+        if (rowPhone === cleanPhone && rowTime > twoHoursAgo) {
+          return r.c[0]?.v; // return existing orderId
+        }
+      }
+    } catch(e) {}
+    return null;
+  };
+
+  const compose = (modify=false) => {
+    const prefix = modify
+      ? `Hi Dhanya, I'd like to MODIFY my recent order #${existingOrderId}.\n⚠ I understand delivery may vary by 4–5 hours.`
+      : `Hi Dhanya, I'd like to place a new order from Midhunam.`;
+    const paymentNote = `\n⚠ Payment note: Order will be prepared only after payment is confirmed.`;
     const lines = [
-      `Hi Dhanya, I'd like to order from Midhunam.`,
+      prefix,
       ``,
-      `Order ID: #${orderId}`,
+      `Order ID: #${modify ? existingOrderId : orderId}`,
       ``,
       `Order:`,
       ...items.map(({p,qty})=>`• ${p.name} — ${qty} × ${p.unit}  (₹${p.price*qty})`),
       ``,
       `Total: ₹${total}`,
+      paymentNote,
       ``,
       `Name: ${name}`,
       `Phone: ${phone}`,
+      `Delivery area: ${area}`,
       `Address: ${address}`,
       note ? `Note: ${note}` : null,
-    ].filter(Boolean).join('\n');
+    ].filter(l=>l!==null).join('\n');
     return encodeURIComponent(lines);
   };
 
-  const saveToSheet = async () => {
-    if (!SCRIPT_URL) return;
+  const saveToSheet = async (modify=false) => {
+    if (!SCRIPT_URL) return true;
     const itemsStr = items.map(({p,qty})=>`${p.name} x${qty}`).join(', ');
     try {
       await fetch(SCRIPT_URL, {
@@ -616,45 +689,126 @@ function HandoffScreen({ go, cart, clearCart }) {
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orderId, name, phone, address,
-          items: itemsStr, total, status: 'Order Received',
+          orderId: modify ? existingOrderId : orderId,
+          name, phone, address: `${area} — ${address}`,
+          items: itemsStr, total,
+          status: modify ? 'Modified — Reconfirm' : 'Order Received',
           timestamp: new Date().toISOString(),
+          isModify: modify,
         }),
       });
-    } catch(e) { console.log('Sheet save failed', e); }
+      return true;
+    } catch(e) {
+      return false;
+    }
   };
 
-  const send = () => {
+  const send = async () => {
     if (!canSend) return;
-    saveToSheet();
-    window.open(`https://wa.me/${DATA.shop.whatsapp.replace(/[^0-9]/g,'')}?text=${compose()}`, '_blank');
+    setSending(true);
+    setSheetError(false);
+
+    // Check for recent order from same phone
+    const recentId = await checkRecentOrder();
+    if (recentId && !isModify) {
+      setExistingOrderId(recentId);
+      setIsModify(true);
+      setSending(false);
+      return;
+    }
+
+    const saved = await saveToSheet(isModify);
+    if (!saved) setSheetError(true);
+
+    window.open(`https://wa.me/${DATA.shop.whatsapp.replace(/[^0-9]/g,'')}?text=${compose(isModify)}`, '_blank');
+    setSending(false);
     setSent(true);
   };
-  if (sent) return (
-    <div style={{ padding:'48px 24px', textAlign:'center' }}>
-      <div style={{ fontFamily:'var(--font-mono)', fontSize:11, letterSpacing:'0.3em', color:'var(--accent-red)', textTransform:'uppercase' }}>Order placed</div>
-      <div style={{ fontFamily:'var(--font-display)', fontSize:32, color:'var(--ink)', marginTop:16, lineHeight:1.1 }}>Thank you.</div>
-      <div style={{ fontFamily:'var(--font-serif)', fontSize:15, color:'var(--ink-soft)', marginTop:10, lineHeight:1.55, fontStyle:'italic' }}>Dhanya will reply on WhatsApp to confirm your slot.</div>
 
-      <div style={{ marginTop:24, padding:'18px 18px', border:'1px solid var(--ink)', background:'var(--paper-deep)', textAlign:'left' }}>
-        <div style={{ fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.22em', color:'var(--ink-soft)', textTransform:'uppercase', marginBottom:10 }}>Your order number</div>
-        <div style={{ fontFamily:'var(--font-mono)', fontSize:32, fontWeight:700, color:'var(--ink)', letterSpacing:'0.1em' }}>#{orderId}</div>
-        <div style={{ fontFamily:'var(--font-serif)', fontSize:13, color:'var(--ink-soft)', marginTop:8, fontStyle:'italic', lineHeight:1.5 }}>Save this number. Use it to track your order anytime from the Track tab.</div>
+  // ── Modify confirmation screen
+  if (isModify && existingOrderId && !sent) return (
+    <div style={{ padding:'40px 24px' }}>
+      <div style={{ fontFamily:'var(--font-mono)', fontSize:10, letterSpacing:'0.28em', color:'var(--accent-red)', textTransform:'uppercase' }}>Wait — you ordered recently</div>
+      <div style={{ fontFamily:'var(--font-display)', fontSize:30, color:'var(--ink)', marginTop:12, lineHeight:1.1 }}>Modify your order?</div>
+      <div style={{ fontFamily:'var(--font-serif)', fontSize:15, color:'var(--ink-soft)', marginTop:10, lineHeight:1.6, fontStyle:'italic' }}>
+        We found a recent order <strong style={{fontStyle:'normal'}}>#{existingOrderId}</strong> from your number placed within the last 2 hours.
       </div>
 
-      <div style={{ marginTop:14, padding:'14px 18px', border:'1px solid var(--ink-faint)', background:'var(--paper-deep)', textAlign:'left' }}>
-        <div style={{ fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.22em', color:'var(--accent-red)', textTransform:'uppercase', marginBottom:8 }}>⚠ Verify before you pay</div>
-        <div style={{ fontFamily:'var(--font-serif)', fontSize:13, color:'var(--ink)', lineHeight:1.6 }}>
-          The only official Midhunam number is <strong>+91 77022 43172</strong>. If you're chatting with any other number, do not place an order.
+      <div style={{ marginTop:20, padding:'16px 16px', border:'1px solid var(--accent-red)', background:'var(--paper-deep)' }}>
+        <div style={{ fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.2em', color:'var(--accent-red)', textTransform:'uppercase', marginBottom:8 }}>⚠ Important</div>
+        <div style={{ fontFamily:'var(--font-serif)', fontSize:14, color:'var(--ink)', lineHeight:1.6 }}>
+          Modifying now will send Dhanya a change request. <strong>Delivery may vary by 4–5 hours</strong> depending on preparation stage.
         </div>
       </div>
 
-      <div style={{ marginTop:18, padding:'14px 18px', border:'1px dashed var(--ink-faint)', textAlign:'left' }}>
-        <div style={{ fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.22em', color:'var(--ink-soft)', textTransform:'uppercase', marginBottom:8 }}>Cancellations</div>
-        <div style={{ fontFamily:'var(--font-serif)', fontSize:13, color:'var(--ink-soft)', lineHeight:1.6, fontStyle:'italic' }}>
-          Fresh items: within 2 hours of order.<br/>
-          Kerala imports: within 24 hours.<br/>
-          To cancel, call +91 77022 43172.
+      <div style={{ marginTop:20, display:'flex', flexDirection:'column', gap:10 }}>
+        <BigButton onClick={async () => {
+          setSending(true);
+          const saved = await saveToSheet(true);
+          if (!saved) setSheetError(true);
+          window.open(`https://wa.me/${DATA.shop.whatsapp.replace(/[^0-9]/g,'')}?text=${compose(true)}`, '_blank');
+          setSending(false);
+          setSent(true);
+        }}>
+          {sending ? 'Sending...' : 'Yes, modify my order'}
+        </BigButton>
+        <BigButton tone="light" onClick={()=>{ setIsModify(false); setExistingOrderId(null); }}>
+          No, place a new order
+        </BigButton>
+      </div>
+    </div>
+  );
+
+  // ── Success screen
+  if (sent) return (
+    <div style={{ padding:'40px 24px', textAlign:'center' }}>
+      <div style={{ fontFamily:'var(--font-mono)', fontSize:11, letterSpacing:'0.3em', color:'var(--accent-red)', textTransform:'uppercase' }}>
+        {isModify ? 'Modification sent' : 'Order placed'}
+      </div>
+      <div style={{ fontFamily:'var(--font-display)', fontSize:32, color:'var(--ink)', marginTop:16, lineHeight:1.1 }}>Thank you.</div>
+
+      {isModify && (
+        <div style={{ marginTop:14, padding:'14px 16px', border:'1px solid var(--accent-red)', background:'var(--paper-deep)', textAlign:'left' }}>
+          <div style={{ fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.2em', color:'var(--accent-red)', textTransform:'uppercase', marginBottom:6 }}>Modification note</div>
+          <div style={{ fontFamily:'var(--font-serif)', fontSize:13.5, color:'var(--ink)', lineHeight:1.6 }}>Your change request has been sent. Delivery may vary by 4–5 hours. Wait for Dhanya's confirmation.</div>
+        </div>
+      )}
+
+      {/* WhatsApp not sent warning */}
+      <div style={{ marginTop:16, padding:'14px 16px', border:'1px solid var(--ink)', background:'var(--paper-deep)', textAlign:'left' }}>
+        <div style={{ fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.22em', color:'var(--accent-red)', textTransform:'uppercase', marginBottom:6 }}>⚠ Action needed</div>
+        <div style={{ fontFamily:'var(--font-serif)', fontSize:13.5, color:'var(--ink)', lineHeight:1.6 }}>
+          <strong>Your order is confirmed only after Dhanya replies on WhatsApp.</strong> If you closed WhatsApp without sending, please go back and try again.
+        </div>
+      </div>
+
+      {/* Sheet save error */}
+      {sheetError && (
+        <div style={{ marginTop:12, padding:'12px 16px', border:'1px dashed var(--accent-red)', textAlign:'left' }}>
+          <div style={{ fontFamily:'var(--font-serif)', fontSize:13, color:'var(--accent-red)', lineHeight:1.5 }}>
+            Could not save order record. Please screenshot this page and send it to Dhanya on WhatsApp.
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginTop:16, padding:'16px 16px', border:'1px solid var(--ink)', background:'var(--paper-deep)', textAlign:'left' }}>
+        <div style={{ fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.22em', color:'var(--ink-soft)', textTransform:'uppercase', marginBottom:8 }}>Your order number</div>
+        <div style={{ fontFamily:'var(--font-mono)', fontSize:28, fontWeight:700, color:'var(--ink)', letterSpacing:'0.1em' }}>#{isModify ? existingOrderId : orderId}</div>
+        <div style={{ fontFamily:'var(--font-serif)', fontSize:13, color:'var(--ink-soft)', marginTop:6, fontStyle:'italic', lineHeight:1.5 }}>Save this. Use the Track tab to follow your order.</div>
+      </div>
+
+      <div style={{ marginTop:14, padding:'14px 16px', border:'1px dashed var(--ink-faint)', textAlign:'left' }}>
+        <div style={{ fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.22em', color:'var(--ink-soft)', textTransform:'uppercase', marginBottom:6 }}>Cancellations</div>
+        <div style={{ fontFamily:'var(--font-serif)', fontStyle:'italic', fontSize:13, color:'var(--ink-soft)', lineHeight:1.6 }}>
+          Fresh items: within 2 hours · Kerala imports: within 24 hours.<br/>
+          Call <strong style={{fontStyle:'normal'}}>+91 77022 43172</strong>
+        </div>
+      </div>
+
+      <div style={{ marginTop:14, padding:'14px 16px', border:'1px solid var(--ink-faint)', background:'var(--paper-deep)', textAlign:'left' }}>
+        <div style={{ fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.22em', color:'var(--accent-red)', textTransform:'uppercase', marginBottom:6 }}>⚠ Verify before you pay</div>
+        <div style={{ fontFamily:'var(--font-serif)', fontSize:13, color:'var(--ink)', lineHeight:1.6 }}>
+          The only official Midhunam number is <strong>+91 77022 43172</strong>. If chatting with any other number, do not pay.
         </div>
       </div>
 
@@ -666,33 +820,70 @@ function HandoffScreen({ go, cart, clearCart }) {
       </div>
     </div>
   );
+
+  // ── Main form
   return (
     <div style={{ paddingBottom:140 }}>
-      <div style={{ padding:'24px 20px 8px' }}>
+      <div style={{ padding:'24px var(--px) 8px' }}>
         <div style={{ fontFamily:'var(--font-mono)', fontSize:10, letterSpacing:'0.24em', color:'var(--ink-soft)', textTransform:'uppercase' }}>Last step</div>
         <div style={{ fontFamily:'var(--font-display)', fontSize:34, lineHeight:1, color:'var(--ink)', fontWeight:500, marginTop:6 }}>A few details</div>
-        <div style={{ fontFamily:'var(--font-serif)', fontStyle:'italic', fontSize:14, color:'var(--ink-soft)', marginTop:8, lineHeight:1.5 }}>So Dhanya can bring it to the right door. Nothing is saved here — it goes straight to WhatsApp.</div>
-      </div>
-      <div style={{ padding:'20px' }}>
-        <Field label="Your name" value={name} onChange={setName} placeholder="e.g. Nandita"/>
-        <Field label="Phone" value={phone} onChange={setPhone} placeholder="e.g. 98…" inputMode="tel"/>
-        <Field label="Delivery address" value={address} onChange={setAddress} placeholder="Flat, street, landmark, area" multiline/>
-        <Field label="Anything for Dhanya? (optional)" value={note} onChange={setNote} placeholder="e.g. less sweet, or for a prayer" multiline/>
-      </div>
-      <div style={{ padding:'0 var(--px)' }}>
-        <div style={{ border:'1px solid var(--ink)', padding:'14px 16px', background:'var(--paper-deep)' }}>
-          <div style={{ fontFamily:'var(--font-mono)', fontSize:10, letterSpacing:'0.2em', color:'var(--ink-soft)', textTransform:'uppercase', marginBottom:6 }}>Preview</div>
-          <pre style={{ fontFamily:'var(--font-mono)', fontSize:11.5, color:'var(--ink)', margin:0, whiteSpace:'pre-wrap', lineHeight:1.6, fontWeight:500 }}>{decodeURIComponent(compose())}</pre>
+        <div style={{ fontFamily:'var(--font-serif)', fontStyle:'italic', fontSize:14, color:'var(--ink-soft)', marginTop:8, lineHeight:1.5 }}>
+          So Dhanya can bring it to the right door. Nothing is saved here — it goes straight to WhatsApp.
         </div>
       </div>
-      <div style={{ padding:'20px var(--px) 0' }}>
+
+      <div style={{ padding:'20px var(--px)' }}>
+        <Field label="Your name" value={name} onChange={setName} placeholder="e.g. Nandita"/>
+        <Field label="Phone" value={phone} onChange={setPhone} placeholder="e.g. 98…" inputMode="tel"/>
+
+        {/* Area dropdown */}
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontFamily:'var(--font-mono)', fontSize:10, letterSpacing:'0.2em', color:'var(--ink-soft)', textTransform:'uppercase', marginBottom:6 }}>Delivery area</div>
+          <select value={area} onChange={e=>setArea(e.target.value)} style={{ width:'100%', padding:'10px 12px', background:'var(--paper)', border:'1px solid var(--ink-faint)', fontFamily:'var(--font-serif)', fontSize:15, color: area ? 'var(--ink)' : 'var(--ink-faint)', borderRadius:0, outline:'none', appearance:'none', WebkitAppearance:'none', cursor:'pointer' }}>
+            <option value="">Select your area</option>
+            {DATA.deliveryAreas.map(a=><option key={a} value={a}>{a}</option>)}
+            <option value="Other">Other (Dhanya will confirm)</option>
+          </select>
+          {area === 'Other' && (
+            <div style={{ marginTop:6, fontFamily:'var(--font-serif)', fontSize:12, color:'var(--accent-olive)', fontStyle:'italic' }}>
+              Delivery outside our usual 5km range may incur extra charges. Dhanya will confirm on WhatsApp.
+            </div>
+          )}
+        </div>
+
+        <Field label="Full address" value={address} onChange={setAddress} placeholder="Flat, street, landmark" multiline/>
+        <Field label="Anything for Dhanya? (optional)" value={note} onChange={setNote} placeholder="e.g. less sweet, no onion, gift wrap" multiline/>
+      </div>
+
+      {/* Payment clause */}
+      <div style={{ padding:'0 var(--px)', marginBottom:16 }}>
+        <div style={{ padding:'14px 14px', border:'1px solid var(--ink)', background:'var(--paper-deep)' }}>
+          <div style={{ fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.2em', color:'var(--accent-red)', textTransform:'uppercase', marginBottom:6 }}>Payment policy</div>
+          <div style={{ fontFamily:'var(--font-serif)', fontSize:13, color:'var(--ink)', lineHeight:1.6 }}>
+            Your order will be <strong>prepared only after payment is confirmed</strong> on WhatsApp. Dhanya will share payment details when she confirms your slot.
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding:'0 var(--px)' }}>
+        <div style={{ border:'1px solid var(--ink)', padding:'14px 16px', background:'var(--paper-deep)', marginBottom:16 }}>
+          <div style={{ fontFamily:'var(--font-mono)', fontSize:10, letterSpacing:'0.2em', color:'var(--ink-soft)', textTransform:'uppercase', marginBottom:6 }}>Preview</div>
+          <pre style={{ fontFamily:'var(--font-mono)', fontSize:11, color:'var(--ink)', margin:0, whiteSpace:'pre-wrap', lineHeight:1.6, fontWeight:500 }}>{decodeURIComponent(compose(false))}</pre>
+        </div>
+      </div>
+
+      <div style={{ padding:'0 var(--px) 20px' }}>
         <BigButton onClick={send} disabled={!canSend}>
-          <span style={{ display:'inline-flex', alignItems:'center', gap:10 }}><WhatsAppGlyph size={16}/>Open WhatsApp · ₹{total}</span>
+          <span style={{ display:'inline-flex', alignItems:'center', gap:10 }}>
+            <WhatsAppGlyph size={16}/>{sending ? 'Checking...' : `Open WhatsApp · ₹${total}`}
+          </span>
         </BigButton>
+        {!area && <div style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--accent-red)', textAlign:'center', marginTop:8, letterSpacing:'0.1em' }}>Please select your delivery area</div>}
       </div>
     </div>
   );
 }
+
 function Field({ label, value, onChange, placeholder, multiline, inputMode }) {
   const common = { width:'100%', padding:'10px 12px', background:'var(--paper)', border:'1px solid var(--ink-faint)', fontFamily:'var(--font-serif)', fontSize:15, color:'var(--ink)', borderRadius:0, outline:'none', boxSizing:'border-box', resize:'none' };
   return (
@@ -727,7 +918,6 @@ function AboutScreen({ go }) {
           <p style={{ margin:'0 0 14px' }}>Midhunam is my mother's kitchen.</p>
           <p style={{ margin:'0 0 14px' }}>She grew up in central Kerala, where the afternoons smelled of coconut oil and jaggery, and every festival began a week early with something frying on the stove. That is the cooking she does.</p>
           <p style={{ margin:'0 0 14px' }}>We started this because people kept asking her. Neighbours, then their neighbours. Small tins of achappam would disappear in a day. So we made a quiet little website. Nothing fancy. No discounts, no dark patterns, no shelf life that needs a chemistry lab.</p>
-          <p style={{ margin:'0 0 14px' }}>Everything is cooked in small batches, by hand, in a kitchen in Hyderabad. She sends them out through Porter, within 5 km. If something is not right, she'd like to know.</p>
         </div>
         <div style={{ marginTop:18, fontFamily:'var(--font-hand)', fontSize:26, color:'var(--accent-red)', transform:'rotate(-2deg)', display:'inline-block' }}>— With love, Dhanya</div>
       </div>
@@ -738,7 +928,7 @@ function AboutScreen({ go }) {
           {[
             ['No preservatives','Ever. If it needs to last, it does — through salt, sugar, or oil.'],
             ['No bulk wholesaler','Made fresh the day before or day of delivery.'],
-            ['No middlemen','You order, Dhanya cooks, Porter delivers. That\u2019s it.'],
+            ['No middlemen','That\u2019s it.'],
             ['No upselling','If it\u2019s not on the menu today, it\u2019s not available today.'],
           ].map(([t,d])=>(
             <div key={t} style={{ padding:'10px 0', borderTop:'1px dashed var(--ink-faint)' }}>
@@ -976,6 +1166,102 @@ function TrackScreen({ go }) {
   );
 }
 
+
+// ══════════════════════════════════════════════════
+// REVIEWS SCREEN
+// ══════════════════════════════════════════════════
+function ReviewsScreen({ go }) {
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchReviews();
+  }, []);
+
+  const fetchReviews = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Reviews`;
+      const res = await fetch(url);
+      const text = await res.text();
+      const json = JSON.parse(text.match(/google.visualization.Query.setResponse\((.*)\);/s)[1]);
+      const rows = json.table?.rows || [];
+      const fetched = rows
+        .filter(r => r.c[4]?.v === true || r.c[4]?.v === 'TRUE') // only show=TRUE
+        .map(r => ({
+          name: r.c[0]?.v || 'Anonymous',
+          area: r.c[1]?.v || '',
+          text: r.c[2]?.v || '',
+          stars: r.c[3]?.v || 5,
+          date: r.c[5]?.v || '',
+        }));
+      // Fall back to hardcoded if sheet empty
+      if (fetched.length === 0) {
+        setReviews(DATA.testimonials.map(t => ({ ...t, show: true })));
+      } else {
+        setReviews(fetched);
+      }
+    } catch(e) {
+      // Fall back to hardcoded testimonials
+      setReviews(DATA.testimonials);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ paddingBottom:120 }}>
+      <div style={{ padding:'28px var(--px) 0' }}>
+        <div style={{ fontFamily:'var(--font-mono)', fontSize:10, letterSpacing:'0.24em', color:'var(--ink-soft)', textTransform:'uppercase' }}>Kind words</div>
+        <div style={{ fontFamily:'var(--font-display)', fontSize:44, lineHeight:0.95, color:'var(--ink)', fontWeight:500, marginTop:6, letterSpacing:'-0.02em' }}>What people<br/>are saying.</div>
+        <div style={{ fontFamily:'var(--font-serif)', fontStyle:'italic', fontSize:14, color:'var(--ink-soft)', marginTop:8, lineHeight:1.5 }}>
+          Real orders, real people, real food.
+        </div>
+      </div>
+
+      <div style={{ padding:'24px var(--px) 0' }}>
+        {loading ? (
+          <div style={{ fontFamily:'var(--font-mono)', fontSize:11, color:'var(--ink-soft)', letterSpacing:'0.18em' }}>Loading...</div>
+        ) : error ? (
+          <div style={{ fontFamily:'var(--font-serif)', fontSize:14, color:'var(--accent-red)', fontStyle:'italic' }}>{error}</div>
+        ) : reviews.length === 0 ? (
+          <div style={{ fontFamily:'var(--font-serif)', fontSize:16, color:'var(--ink-soft)', fontStyle:'italic' }}>No reviews yet. Be the first!</div>
+        ) : (
+          reviews.map((t, i) => (
+            <div key={i} style={{ padding:'18px 0', borderTop: i===0 ? 'none' : '1px dashed var(--ink-faint)' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                <div style={{ display:'inline-flex', gap:2 }}>
+                  {[1,2,3,4,5].map(n=><span key={n} style={{ color:n<=t.stars?'var(--accent-red)':'var(--ink-faint)', fontSize:14, lineHeight:1 }}>★</span>)}
+                </div>
+                {t.date && <div style={{ fontFamily:'var(--font-mono)', fontSize:9.5, color:'var(--ink-soft)', letterSpacing:'0.14em' }}>{t.date.toString().toUpperCase()}</div>}
+              </div>
+              <div style={{ fontFamily:'var(--font-serif)', fontStyle:'italic', fontSize:16, color:'var(--ink)', lineHeight:1.6 }}>"{t.text}"</div>
+              <div style={{ fontFamily:'var(--font-mono)', fontSize:10.5, color:'var(--ink-soft)', marginTop:8, letterSpacing:'0.12em', textTransform:'uppercase' }}>
+                — {t.name}{t.area ? ` · ${t.area}` : ''}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Leave feedback CTA */}
+      <div style={{ padding:'24px var(--px) 0' }}>
+        <div style={{ border:'1px solid var(--ink-faint)', padding:'18px 18px', background:'var(--paper-deep)' }}>
+          <div style={{ fontFamily:'var(--font-serif)', fontSize:15, color:'var(--ink)', fontStyle:'italic' }}>Had an order from us?</div>
+          <div style={{ fontFamily:'var(--font-serif)', fontSize:13, color:'var(--ink-soft)', marginTop:4, lineHeight:1.5 }}>Leave a few words — honest is better than polite.</div>
+          <div style={{ marginTop:14 }}>
+            <BigButton onClick={()=>go({screen:'feedback'})}>Leave feedback</BigButton>
+          </div>
+        </div>
+      </div>
+
+      <Ornament/>
+      <div style={{ padding:'0 var(--px)' }}><FooterLinks go={go}/></div>
+    </div>
+  );
+}
+
 // ══════════════════════════════════════════════════
 // FOOTER LINKS
 // ══════════════════════════════════════════════════
@@ -1032,6 +1318,7 @@ function TabBar({ route, go, cartCount }) {
     { id:'catalogue', label:'Menu', icon:<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M4 3h12v14H4z" stroke="currentColor" strokeWidth="1.4"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> },
     { id:'cart', label:'Basket', badge:cartCount, icon:<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M3 5h2l2 9h9l2-7H6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/><circle cx="8" cy="17" r="1.3" fill="currentColor"/><circle cx="15" cy="17" r="1.3" fill="currentColor"/></svg> },
     { id:'track', label:'Track', icon:<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.4"/><path d="M10 6v4l3 2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> },
+    { id:'reviews', label:'Reviews', icon:<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.5 5 5.5.8-4 3.9.9 5.5L10 14.5l-4.9 2.7.9-5.5L2 7.8l5.5-.8z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg> },
     { id:'feedback', label:'Feedback', icon:<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M3 4h14v10H9l-4 3v-3H3V4z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg> },
   ];
   return (
@@ -1080,25 +1367,39 @@ function App() {
 
   const screen = () => {
     switch(route.screen) {
-      case 'home': return <HomeScreen go={go} cart={cart} addToCart={addToCart} updateQty={updateQty}/>;
-      case 'catalogue': return <CatalogueScreen go={go} cart={cart} addToCart={addToCart} updateQty={updateQty}/>;
-      case 'product': return <ProductScreen id={route.id} go={go} cart={cart} addToCart={addToCart} updateQty={updateQty}/>;
-      case 'cart': return <CartScreen go={go} cart={cart} updateQty={updateQty} removeItem={removeItem}/>;
+      case 'home': return <HomeScreen go={go} cart={cart} addToCart={addToCart} updateQty={updateQty} stock={stock} shopStatus={shopStatus}/>;
+      case 'catalogue': return <CatalogueScreen go={go} cart={cart} addToCart={addToCart} updateQty={updateQty} stock={stock} shopStatus={shopStatus}/>;
+      case 'product': return <ProductScreen id={route.id} go={go} cart={cart} addToCart={addToCart} updateQty={updateQty} shopStatus={shopStatus}/>;
+      case 'cart': return <CartScreen go={go} cart={cart} updateQty={updateQty} removeItem={removeItem} shopStatus={shopStatus}/>;
       case 'handoff': return <HandoffScreen go={go} cart={cart} clearCart={clearCart}/>;
       case 'about': return <AboutScreen go={go}/>;
       case 'track': return <TrackScreen go={go}/>;
+      case 'reviews': return <ReviewsScreen go={go}/>;
       case 'feedback': return <FeedbackScreen go={go}/>;
       case 'faq': return <FaqScreen go={go}/>;
       default: return <HomeScreen go={go} cart={cart} addToCart={addToCart} updateQty={updateQty}/>;
     }
   };
 
+  const [stock, setStock] = useState(null);
+  const [shopStatus, setShopStatus] = useState({ open: true, message: '' });
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768);
   useEffect(() => {
     const handler = () => setIsDesktop(window.innerWidth >= 768);
     window.addEventListener('resize', handler);
-    handler(); // run once on mount
+    handler();
     return () => window.removeEventListener('resize', handler);
+  }, []);
+
+  useEffect(() => {
+    fetchShopStatus().then(s => { if (s !== null) setShopStatus(s); });
+    fetchStock().then(s => { if (s) setStock(s); });
+    // Refresh every 5 minutes
+    const interval = setInterval(() => {
+      fetchShopStatus().then(s => { if (s !== null) setShopStatus(s); });
+      fetchStock().then(s => { if (s) setStock(s); });
+    }, 300000);
+    return () => clearInterval(interval);
   }, []);
   return (
     <div data-app-shell style={{ display:'flex', flexDirection:'column', height: isDesktop ? 'auto' : '100%', minHeight: isDesktop ? '100vh' : '100%', background:'var(--paper)' }}>
@@ -1109,6 +1410,61 @@ function App() {
       <div data-tabbar style={{ flexShrink:0 }}><TabBar route={route} go={go} cartCount={cartCount}/></div>
     </div>
   );
+}
+
+// ── Stock store (fetched from Google Sheet Inventory tab)
+const stockCache = { data: null, fetched: 0 };
+
+// ── Shop open/closed status from Settings sheet tab
+const shopStatusCache = { data: null, fetched: 0 };
+
+async function fetchShopStatus() {
+  if (shopStatusCache.data && Date.now() - shopStatusCache.fetched < 300000) return shopStatusCache.data;
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Settings`;
+    const res = await fetch(url);
+    const text = await res.text();
+    const json = JSON.parse(text.match(/google.visualization.Query.setResponse\((.*)\);/s)[1]);
+    const rows = json.table?.rows || [];
+    const settings = {};
+    rows.forEach(r => {
+      const key = r.c[0]?.v;
+      const val = r.c[1]?.v;
+      if (key) settings[key] = val;
+    });
+    const status = {
+      open: settings['shop_open'] !== false && settings['shop_open'] !== 'FALSE' && settings['shop_open'] !== false,
+      message: settings['closed_message'] || 'We are taking a short break. Check back soon.',
+    };
+    shopStatusCache.data = status;
+    shopStatusCache.fetched = Date.now();
+    return status;
+  } catch(e) {
+    return { open: true, message: '' }; // fail open
+  }
+}
+
+async function fetchStock() {
+  // Cache for 5 minutes
+  if (stockCache.data && Date.now() - stockCache.fetched < 300000) return stockCache.data;
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Inventory`;
+    const res = await fetch(url);
+    const text = await res.text();
+    const json = JSON.parse(text.match(/google.visualization.Query.setResponse\((.*)\);/s)[1]);
+    const rows = json.table?.rows || [];
+    const stock = {};
+    rows.forEach(r => {
+      const id = r.c[0]?.v;
+      const qty = r.c[1]?.v;
+      if (id) stock[id] = qty ?? null; // null = unlimited
+    });
+    stockCache.data = stock;
+    stockCache.fetched = Date.now();
+    return stock;
+  } catch(e) {
+    return null; // on error, assume all available
+  }
 }
 
 (function boot() {
