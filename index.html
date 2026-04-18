@@ -716,22 +716,48 @@ function HandoffScreen({ go, cart, clearCart }) {
 
   // ── Check if same phone ordered within last 2 hours
   const checkRecentOrder = async () => {
-    if (!SCRIPT_URL || !cleanPhone) return null;
+    if (!cleanPhone) return null;
     try {
       const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Sheet1`;
       const res = await fetch(url);
       const text = await res.text();
       const json = JSON.parse(text.match(/google.visualization.Query.setResponse\((.*)\);/s)[1]);
       const rows = json.table?.rows || [];
-      const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+
+      // Today midnight — same calendar day check
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      const startOfDay = todayMidnight.getTime();
+
       for (const r of rows) {
-        const rowPhone = r.c[3]?.v?.toString().replace(/\D/g,'') || '';
-        const rowTime = r.c[1]?.v ? new Date(r.c[1].v).getTime() : 0;
-        if (rowPhone === cleanPhone && rowTime > twoHoursAgo) {
-          return r.c[0]?.v; // return existing orderId
+        // Phone is stored as plain number in col 3
+        const rowPhoneRaw = r.c[3]?.v?.toString() || '';
+        const rowPhone = rowPhoneRaw.replace(/\D/g, '');
+
+        // Google Sheets gviz returns dates as "Date(yyyy,mm,dd,hh,MM,ss)"
+        // where mm is 0-indexed. Parse it manually.
+        let rowTime = 0;
+        const dateVal = r.c[1]?.v;
+        if (typeof dateVal === 'string' && dateVal.startsWith('Date(')) {
+          const parts = dateVal.replace('Date(', '').replace(')', '').split(',').map(Number);
+          // parts: [year, month0indexed, day, hour, min, sec]
+          rowTime = new Date(parts[0], parts[1], parts[2], parts[3]||0, parts[4]||0, parts[5]||0).getTime();
+        } else if (typeof dateVal === 'number') {
+          // Sometimes gviz returns a timestamp number directly
+          rowTime = dateVal;
+        }
+
+        // Match phone — strip everything, just digits, last 10
+        const phoneMatch = rowPhone.slice(-10) === cleanPhone.slice(-10);
+        const sameDay = rowTime >= startOfDay;
+
+        if (phoneMatch && sameDay) {
+          return r.c[0]?.v?.toString() || null;
         }
       }
-    } catch(e) {}
+    } catch(e) {
+      console.log('checkRecentOrder error:', e);
+    }
     return null;
   };
 
