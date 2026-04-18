@@ -724,35 +724,49 @@ function HandoffScreen({ go, cart, clearCart }) {
       const json = JSON.parse(text.match(/google.visualization.Query.setResponse\((.*)\);/s)[1]);
       const rows = json.table?.rows || [];
 
-      // Today midnight — same calendar day check
       const todayMidnight = new Date();
       todayMidnight.setHours(0, 0, 0, 0);
       const startOfDay = todayMidnight.getTime();
 
-      for (const r of rows) {
-        // Phone is stored as plain number in col 3
-        const rowPhoneRaw = r.c[3]?.v?.toString() || '';
-        const rowPhone = rowPhoneRaw.replace(/\D/g, '');
+      // Statuses that mean order is done — allow fresh order
+      const doneStatuses = ['Delivered', 'Cancelled'];
+      // Only one modification allowed — these are already modified
+      const modifiedStatuses = ['Modified — Reconfirm'];
 
-        // Google Sheets gviz returns dates as "Date(yyyy,mm,dd,hh,MM,ss)"
-        // where mm is 0-indexed. Parse it manually.
+      for (const r of rows) {
+        // Col 3 = Phone. Stored as ISO string with area prefix e.g. "Gachibowli — 9876543210"
+        // Extract only the last continuous digit sequence (the actual phone number)
+        const rawPhone = r.c[3]?.v?.toString() || '';
+        // Get all digit groups, take the last one (the phone number)
+        const digitGroups = rawPhone.match(/\d+/g) || [];
+        const rowPhone = digitGroups[digitGroups.length - 1] || '';
+
+        // Parse timestamp — gviz format: "Date(2026,3,19,10,30,0)" (month is 0-indexed)
         let rowTime = 0;
         const dateVal = r.c[1]?.v;
         if (typeof dateVal === 'string' && dateVal.startsWith('Date(')) {
-          const parts = dateVal.replace('Date(', '').replace(')', '').split(',').map(Number);
-          // parts: [year, month0indexed, day, hour, min, sec]
+          const parts = dateVal.replace('Date(','').replace(')','').split(',').map(Number);
           rowTime = new Date(parts[0], parts[1], parts[2], parts[3]||0, parts[4]||0, parts[5]||0).getTime();
         } else if (typeof dateVal === 'number') {
-          // Sometimes gviz returns a timestamp number directly
           rowTime = dateVal;
         }
 
-        // Match phone — strip everything, just digits, last 10
+        const rowStatus = r.c[7]?.v?.toString() || '';
+        const rowType   = r.c[8]?.v?.toString() || '';
+        const rowOrderId = r.c[0]?.v?.toString() || '';
+        const modifyCount = Number(r.c[15]?.v) || 0; // col 16 = ModifyCount
+
         const phoneMatch = rowPhone.slice(-10) === cleanPhone.slice(-10);
         const sameDay = rowTime >= startOfDay;
+        const isActive = !doneStatuses.includes(rowStatus);
+        // Block second modification if ModifyCount >= 1 OR row is already a MODIFIED type
+        const alreadyModified = modifyCount >= 1 || rowType === 'MODIFIED';
 
-        if (phoneMatch && sameDay) {
-          return r.c[0]?.v?.toString() || null;
+        if (phoneMatch && sameDay && isActive) {
+          if (alreadyModified) {
+            return { orderId: rowOrderId, maxModified: true };
+          }
+          return { orderId: rowOrderId, maxModified: false };
         }
       }
     } catch(e) {
@@ -815,9 +829,15 @@ function HandoffScreen({ go, cart, clearCart }) {
     setSheetError(false);
 
     // Check for recent order from same phone
-    const recentId = await checkRecentOrder();
-    if (recentId && !isModify) {
-      setExistingOrderId(recentId);
+    const recent = await checkRecentOrder();
+    if (recent && !isModify) {
+      if (recent.maxModified) {
+        // Already modified once — block, don't allow another modify
+        setSending(false);
+        alert('You have already modified this order once today. To make further changes, please call Dhanya directly on +91 77022 43172.');
+        return;
+      }
+      setExistingOrderId(recent.orderId);
       setIsModify(true);
       setSending(false);
       return;
@@ -851,7 +871,7 @@ function HandoffScreen({ go, cart, clearCart }) {
       <div style={{ fontFamily:'var(--font-mono)', fontSize:10, letterSpacing:'0.28em', color:'var(--accent-red)', textTransform:'uppercase' }}>Wait — you ordered recently</div>
       <div style={{ fontFamily:'var(--font-display)', fontSize:30, color:'var(--ink)', marginTop:12, lineHeight:1.1 }}>Modify your order?</div>
       <div style={{ fontFamily:'var(--font-serif)', fontSize:15, color:'var(--ink-soft)', marginTop:10, lineHeight:1.6, fontStyle:'italic' }}>
-        We found a recent order <strong style={{fontStyle:'normal'}}>#{existingOrderId}</strong> from your number placed within the last 2 hours.
+        We found an active order <strong style={{fontStyle:'normal'}}>#{existingOrderId}</strong> from your number placed today.
       </div>
 
       <div style={{ marginTop:20, padding:'16px 16px', border:'1px solid var(--accent-red)', background:'var(--paper-deep)' }}>
@@ -1038,7 +1058,6 @@ function AboutScreen({ go }) {
           <p style={{ margin:'0 0 14px' }}>Midhunam is my mother's kitchen.</p>
           <p style={{ margin:'0 0 14px' }}>She grew up in central Kerala, where the afternoons smelled of coconut oil and jaggery, and every festival began a week early with something frying on the stove. That is the cooking she does.</p>
           <p style={{ margin:'0 0 14px' }}>We started this because people kept asking her. Neighbours, then their neighbours. Small tins of achappam would disappear in a day. So we made a quiet little website. Nothing fancy. No discounts, no dark patterns, no shelf life that needs a chemistry lab.</p>
-          <p style={{ margin:'0 0 14px' }}>Everything is cooked in small batches, by hand, in a kitchen in Hyderabad. She sends them out through Porter, within 5 km. If something is not right, she'd like to know.</p>
         </div>
         <div style={{ marginTop:18, fontFamily:'var(--font-hand)', fontSize:26, color:'var(--accent-red)', transform:'rotate(-2deg)', display:'inline-block' }}>— With love, Dhanya</div>
       </div>
