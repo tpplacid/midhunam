@@ -1238,7 +1238,7 @@ function TrackScreen({ go }) {
 
   const fetchOrder = async () => {
     const id = orderInput.trim().replace('#','');
-    if (!id || id.length !== 6) { setError('Please enter a valid 6-digit order number.'); return; }
+    if (!id || id.length !== 7) { setError('Please enter a valid 7-character order ID.'); return; }
     setError(''); setLoading(true); setOrder(null);
     try {
       const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Sheet1`;
@@ -1269,14 +1269,14 @@ function TrackScreen({ go }) {
       <div style={{ padding:'28px var(--px) 0' }}>
         <div style={{ fontFamily:'var(--font-mono)', fontSize:10, letterSpacing:'0.24em', color:'var(--ink-soft)', textTransform:'uppercase' }}>Track</div>
         <div style={{ fontFamily:'var(--font-display)', fontSize:44, lineHeight:0.95, color:'var(--ink)', fontWeight:500, marginTop:6, letterSpacing:'-0.02em' }}>Your order.</div>
-        <div style={{ fontFamily:'var(--font-serif)', fontStyle:'italic', fontSize:14, color:'var(--ink-soft)', marginTop:8, lineHeight:1.5 }}>Enter the 6-digit order number from your confirmation.</div>
+        <div style={{ fontFamily:'var(--font-serif)', fontStyle:'italic', fontSize:14, color:'var(--ink-soft)', marginTop:8, lineHeight:1.5 }}>Enter the 7-character order ID from your confirmation.</div>
       </div>
 
       <div style={{ padding:'24px var(--px) 0', display:'flex', gap:10 }}>
         <input
-          type="text" inputMode="numeric" maxLength={6}
-          value={orderInput} onChange={e=>setOrderInput(e.target.value.replace(/\D/g,''))}
-          placeholder="e.g. 482193"
+          type="text" inputMode="text" maxLength={7}
+          value={orderInput} onChange={e=>setOrderInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,''))}
+          placeholder="e.g. AB3X7QK"
           style={{ flex:1, padding:'12px 14px', background:'var(--paper)', border:'1px solid var(--ink)', fontFamily:'var(--font-mono)', fontSize:18, fontWeight:600, color:'var(--ink)', borderRadius:0, outline:'none', letterSpacing:'0.18em' }}
           onKeyDown={e=>e.key==='Enter'&&fetchOrder()}
         />
